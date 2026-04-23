@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema Escolar</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div style="display:flex;">
+        <nav style="width:200px; background:#1e293b; color:white; height:100vh; padding:20px;">
+            <h2>EduRank</h2>
+            <p><a href="/" style="color:white; text-decoration:none;">👥 Alumnos</a></p>
+            <p><a href="/ranking" style="color:white; text-decoration:none;">🏆 Rankings</a></p>
+        </nav>
+        <main style="padding:40px; flex:1;">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

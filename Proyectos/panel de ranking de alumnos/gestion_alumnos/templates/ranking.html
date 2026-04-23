@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>🏆 Ranking de Excelencia</h1>
+    
+    <div class="card">
+        <form action="/ranking_curso" method="GET">
+            <label>Filtrar por Curso:</label>
+            <select name="curso" class="btn" style="border: 1px solid #ccc;">
+                {% for curso in cursos %}
+                <option value="{{ curso }}" {% if seleccionado == curso %}selected{% endif %}>{{ curso }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Ver Ranking Curso</button>
+            <a href="/ranking" class="btn" style="background: #ccc;">Ver General</a>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Top 10 {{ seleccionado if seleccionado else 'General' }}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Posición</th>
+                    <th>Nombre</th>
+                    <th>Curso</th>
+                    <th>Puntaje Final</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alumno in alumnos %}
+                <tr>
+                    <td><strong>#{{ loop.index }}</strong></td>
+                    <td>{{ alumno.nombre }}</td>
+                    <td>{{ alumno.curso }}</td>
+                    <td><span class="badge" style="background: #fef3c7; color: #92400e;">{{ alumno.puntaje_final }} pts</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

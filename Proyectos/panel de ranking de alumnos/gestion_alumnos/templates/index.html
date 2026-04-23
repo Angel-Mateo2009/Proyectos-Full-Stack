@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="my-4">Gestión de Alumnos</h1>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <form action="/agregar" method="POST" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Nombre del Alumno</label>
+                <input type="text" name="nombre" class="form-control" placeholder="Ej: Juan Pérez" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Curso</label>
+                <input type="text" name="curso" class="form-control" placeholder="Ej: 10mo A" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Puntaje Final</label>
+                <input type="number" step="0.1" name="puntaje_final" class="form-control" placeholder="0 - 10" required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Guardar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover shadow-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Curso</th>
+                    <th>Puntaje</th>
+                    <th>Estatus</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for al in alumnos %}
+                <tr>
+                    <td>{{ al.nombre }}</td>
+                    <td>{{ al.curso }}</td>
+                    <td><strong>{{ al.puntaje_final }}</strong></td>
+                    <td>
+                        {% if al.puntaje_final >= 9.5 %}
+                            <span class="badge bg-success">Beca Total</span>
+                        {% elif al.puntaje_final >= 8.5 %}
+                            <span class="badge bg-info text-dark">Beca Parcial</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Regular</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="/editar/{{ al.id }}" class="btn btn-sm btn-warning">Editar</a>
+                        <a href="/eliminar/{{ al.id }}" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar a este alumno?')">Eliminar</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No hay alumnos registrados aún.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

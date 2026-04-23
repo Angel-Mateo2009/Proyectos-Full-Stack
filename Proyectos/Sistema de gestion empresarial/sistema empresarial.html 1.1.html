@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏅 SIGEA - Sistema de Gestión</title>
+    <!-- Frameworks -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="diseño.css">
+   </head>
+<body class="text-slate-100 h-screen overflow-hidden">
+
+    <!-- Login -->
+    <div id="auth-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="video-container">
+            <video class="video-background" autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?q=80&w=2000&auto=format&fit=crop">
+                <source src="https://cdn.pixabay.com/video/2020/03/30/34944-403423774_large.mp4" type="video/mp4">
+            </video>
+        </div>
+        
+        <div class="bg-black/85 backdrop-blur-xl p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/10 fade-in">
+            <div class="text-center mb-8">
+                <div class="inline-flex p-4 bg-orange-500/10 text-orange-500 rounded-2xl mb-4">
+                    <i data-lucide="wrench" size="32"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tighter">👨‍🔧SIGEA <span class="text-orange-500">🔧PRO</span></h1>
+                <p class="text-slate-400 text-sm">Gestión de Taller y Suministros</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Email Acceso</label>
+                    <input type="email" required class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-white" value="admin@gmail.com">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Contraseña</label>
+                    <input type="password" required class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-white" value="123456">
+                </div>
+                <button type="submit" class="w-full btn-primary py-4 rounded-xl shadow-lg uppercase tracking-widest">
+                    INICIAR SESIÓN
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Main -->
+    <div id="main-app" class="flex h-full hidden">
+        <aside class="w-64 bg-black border-r border-white/10 flex flex-col shadow-xl">
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <h1 class="text-xl font-black text-orange-500 flex items-center gap-2">
+                    <i data-lucide="zap"></i> SIGEA
+                </h1>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="navigate('panel')" id="nav-panel" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all font-bold text-left">
+                    <i data-lucide="layout-dashboard"></i> Panel de Control
+                </button>
+                <button onclick="navigate('inventario')" id="nav-inventario" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all font-bold text-left">
+                    <i data-lucide="box"></i> Inventario
+                </button>
+                <button onclick="navigate('ventas')" id="nav-ventas" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all font-bold text-left">
+                    <i data-lucide="shopping-cart"></i> Ventas/Vehículos
+                </button>
+                <button onclick="navigate('gastos')" id="nav-gastos" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all font-bold text-left">
+                    <i data-lucide="receipt"></i> Gastos
+                </button>
+                <button onclick="navigate('reportes')" id="nav-reportes" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white transition-all font-bold text-left">
+                    <i data-lucide="file-text"></i> Reportes & BI
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-white/5">
+                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 text-rose-500 hover:bg-rose-500/10 rounded-xl font-bold transition-all">
+                    <i data-lucide="power"></i> Salir
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden bg-zinc-900">
+            <header class="h-16 bg-black/50 border-b border-white/5 flex items-center justify-between px-8">
+                <h2 id="current-view-title" class="text-sm font-black text-white uppercase tracking-widest">Panel de Control</h2>
+                <div class="flex items-center gap-4">
+                    <span id="date-display" class="text-[10px] font-black text-slate-500 uppercase"></span>
+                </div>
+            </header>
+
+            <section id="content-area" class="flex-1 overflow-y-auto p-8 fade-in"></section>
+        </main>
+    </div>
+
+    <!-- Modales -->
+    <div id="modal-edit" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-white/10 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-black/30">
+                <h3 id="modal-title" class="text-lg font-bold text-white">Nuevo Registro</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-orange-500">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="form-item" class="p-6 space-y-4" onsubmit="handleFormSubmit(event)">
+                <input type="hidden" id="modal-type-hidden">
+                
+                <div id="inventory-fields" class="hidden">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Nombre del Producto</label>
+                        <input type="text" id="edit-name" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-slate-500 uppercase">Precio ($)</label>
+                            <input type="number" id="edit-price" step="0.01" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-slate-500 uppercase">Stock</label>
+                            <input type="number" id="edit-stock" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sales-fields" class="hidden">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Seleccionar Repuesto</label>
+                        <select id="sale-product-id" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white"></select>
+                    </div>
+                    <div class="space-y-1 mt-4">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Placa del Vehículo</label>
+                        <input type="text" id="sale-vehicle" placeholder="Ej: PBE-1234" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                    </div>
+                    <div class="space-y-1 mt-4">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Modelo de Auto</label>
+                        <input type="text" id="sale-car-model" placeholder="Toyota Hilux, etc." class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                    </div>
+                </div>
+
+                <div id="expense-fields" class="hidden">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Descripción Gasto</label>
+                        <input type="text" id="exp-desc" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                    </div>
+                    <div class="space-y-1 mt-4">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Monto Total ($)</label>
+                        <input type="number" id="exp-amount" step="0.01" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white">
+                    </div>
+                </div>
+
+                <div class="pt-4 flex items-center gap-3">
+                    <button type="button" onclick="closeModal()" class="flex-1 py-3 text-slate-400 font-bold hover:bg-white/5 rounded-xl">Cancelar</button>
+                    <button type="submit" class="flex-[2] py-3 btn-primary rounded-xl uppercase tracking-tighter">Confirmar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="JAVA.js"></script>
+    </body>
+</html>

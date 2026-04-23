@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 TEO MOTORS - Angel Chamba</title>
+    
+    <!-- Icono y Fuentes -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        
+        :root {
+            --brand-orange: #f97316;
+            --brand-dark: #050505;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--brand-dark); 
+            color: #fff; 
+            scroll-behavior: smooth; 
+            overflow-x: hidden;
+        }
+
+        .glass { 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+
+        .brand-gradient { 
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); 
+        }
+
+        .input-dark { 
+            background: rgba(0, 0, 0, 0.6); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            color: #fff; 
+            transition: all 0.3s ease;
+        }
+
+        .input-dark:focus { 
+            border-color: var(--brand-orange); 
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+            outline: none; 
+        }
+
+        ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
+
+        @keyframes slideUp { 
+            from { opacity: 0; transform: translateY(20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Ocultar scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Firebase Integration -->
+    <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, collection, onSnapshot, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
+
+const firebaseConfig = {
+ apiKey: "AIzaSyCTApCz5uYxRXbMfPCj6AKY2AV8QgcQglc",
+ authDomain: "teo-motors.firebaseapp.com",
+ projectId: "teo-motors",
+ storageBucket: "teo-motors.firebasestorage.app",
+ messagingSenderId: "752827905684",
+ appId: "1:752827905684:web:50dbb0cddbdc922681a681",
+ measurementId: "G-9JBS2WPRP1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const messaging = getMessaging(app);
+const appId = firebaseConfig.appId;
+
+window.auth = auth;
+window.db = db;
+
+let user = null;
+let localCitas = []; 
+
+async function activarNotificaciones(){
+
+ try{
+
+  const permiso = await Notification.requestPermission();
+
+  if(permiso !== "granted"){
+   console.log("permiso no concedido");
+   return;
+  }
+
+  const registro = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
+  await navigator.serviceWorker.ready;
+
+  const token = await getToken(messaging,{
+   vapidKey:"fxKx9gliCZKIi38aE6ti3wmW6-9pae6FpfeW-2wTywY",
+   serviceWorkerRegistration: registro
+  });
+
+  console.log("TOKEN DEL DISPOSITIVO:", token);
+
+ }catch(error){
+
+  console.log("error token:", error);
+
+ }
+
+}
+window.addEventListener("load",()=>{
+activarNotificaciones();
+
+onMessage(messaging, (payload) => {
+ console.log("Mensaje recibido:", payload);
+
+ new Notification(payload.notification.title, {
+   body: payload.notification.body,
+   icon: "/icon.png"
+ });
+});
+});
+
+async function initAuth() {
+ try {
+   if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+     await signInWithCustomToken(auth, __initial_auth_token);
+   } else {
+     await signInAnonymously(auth);
+   }
+ } catch (e) {
+   console.error("Auth Error:", e);
+ }
+}
+
+onAuthStateChanged(auth, (u) => {
+ user = u;
+
+ if (user) {
+   const q = collection(db, 'artifacts', appId, 'public', 'data', 'citas');
+
+   onSnapshot(q, (snapshot) => {
+     localCitas = snapshot.docs.map(doc => ({
+       id: doc.id,
+       ...doc.data()
+     }));
+
+     if (window.updateUI) window.updateUI();
+
+   }, (error) => console.error("Firestore Error:", error));
+ }
+});
+
+initAuth();
+
+window.dbFunctions = {
+
+ async crearCita(data) {
+
+   if (!user) return;
+
+   const bloqueantes = ['pendiente','confirmado','en_taller'];
+
+   const conflicto = localCitas.find(c =>
+     c.fecha === data.fecha &&
+     c.hora === data.hora &&
+     bloqueantes.includes(c.status)
+   );
+
+   if (conflicto) throw new Error("HORARIO_OCUPADO");
+
+   return await addDoc(collection(db,'artifacts',appId,'public','data','citas'),{
+     ...data,
+     status:'pendiente',
+     createdAt:new Date().toISOString()
+   });
+ },
+
+ async actualizarCita(id,updates) {
+
+   if (!user) return;
+
+   const ref = doc(db,'artifacts',appId,'public','data','citas',id);
+
+   return await updateDoc(ref,updates);
+ },
+
+ async eliminarCita(id) {
+
+   if (!user) return;
+
+   return await deleteDoc(doc(db,'artifacts',appId,'public','data','citas',id));
+ },
+
+ getCitas: () => localCitas
+};
+</script>
+
+    <!-- NAVEGACIÓN -->
+    <nav class="fixed top-0 w-full z-50 glass h-24 flex items-center px-6">
+        <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
+            <div class="flex flex-col cursor-pointer" onclick="showView('home')">
+                <span class="text-2xl font-black italic tracking-tighter uppercase leading-none">TEO<span class="text-orange-500">MOTORS</span></span>
+                <span class="text-[10px] font-bold tracking-[0.3em] text-white/40 uppercase">Angel Chamba</span>
+            </div>
+            <div class="flex gap-6 md:gap-10 items-center overflow-x-auto no-scrollbar">
+                <button onclick="showView('home')" class="nav-link text-[10px] font-black uppercase tracking-widest text-orange-500">Agendar</button>
+                <button onclick="showView('tracking')" class="nav-link text-[10px] font-black uppercase tracking-widest hover:text-orange-500 transition-colors">Mi Vehículo</button>
+                <button onclick="showView('location')" class="nav-link text-[10px] font-black uppercase tracking-widest hover:text-orange-500 transition-colors">Ubicación</button>
+                <button onclick="openAdmin()" class="px-4 py-2 rounded-lg bg-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Admin</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+        
+        <!-- VISTA: HOME / AGENDAMIENTO -->
+        <section id="view-home" class="animate-slide-up">
+            <div class="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
+                <div class="space-y-8">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                        </span>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Taller Abierto</span>
+                    </div>
+                    <h1 class="text-6xl md:text-8xl font-black italic leading-[0.9] uppercase tracking-tighter">
+                        CUIDAMOS TU <br><span class="text-orange-500">PASIÓN.</span>
+                    </h1>
+                    <p class="text-white/50 text-lg leading-relaxed max-w-md">
+                        Mantenimiento preventivo y correctivo con la garantía de Angel Chamba. Agenda tu cita hoy mismo.
+                    </p>
+                </div>
+
+                <div class="glass p-8 md:p-12 rounded-[3rem] shadow-2xl">
+                    <div class="flex items-center gap-4 mb-10">
+                        <div class="w-12 h-12 rounded-2xl brand-gradient flex items-center justify-center">
+                            <i data-lucide="calendar" class="text-black"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black uppercase italic text-xl">Reservar Turno</h3>
+                            <p class="text-[10px] text-white/40 uppercase font-bold tracking-widest">Completa los datos</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleReserva(event)" class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">Propietario</label>
+                                <input type="text" id="form-nombre" placeholder="Nombre completo" class="w-full input-dark p-4 rounded-2xl text-sm" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">WhatsApp</label>
+                                <input type="tel" id="form-tel" placeholder="0987654321" class="w-full input-dark p-4 rounded-2xl text-sm" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">Placa del Vehículo</label>
+                                <input type="text" id="form-placa" placeholder="ABC-1234" class="w-full input-dark p-4 rounded-2xl text-center font-black text-xl tracking-widest uppercase" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">Modelo / Marca</label>
+                                <input type="text" id="form-modelo" placeholder="Ej: Toyota Hilux" class="w-full input-dark p-4 rounded-2xl text-sm" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-5">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">Fecha</label>
+                                <input type="date" id="form-fecha" class="w-full input-dark p-4 rounded-2xl text-sm" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold text-white/30 uppercase ml-2">Hora Sugerida</label>
+                                <select id="form-hora" class="w-full input-dark p-4 rounded-2xl text-sm" required>
+                                    <option value="" disabled selected>Seleccionar...</option>
+                                    <option value="08:00">08:00 AM</option>
+                                    <option value="09:00">09:00 AM</option>
+                                    <option value="10:00">10:00 AM</option>
+                                    <option value="11:00">11:00 AM</option>
+                                    <option value="12:00">12:00 PM</option>
+                                    <option value="14:00">02:00 PM</option>
+                                    <option value="15:00">03:00 PM</option>
+                                    <option value="16:00">04:00 PM</option>
+                                    <option value="17:00">05:00 PM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btn-submit" class="w-full brand-gradient py-5 rounded-2xl text-black font-black uppercase italic tracking-tighter hover:scale-[1.02] active:scale-95 transition-all mt-4 flex items-center justify-center gap-2">
+                            Confirmar Cita <i data-lucide="chevron-right" size="18"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA: TRACKING -->
+        <section id="view-tracking" class="hidden animate-slide-up max-w-2xl mx-auto text-center">
+            <h2 class="text-4xl font-black italic uppercase mb-4">Rastreo de <span class="text-orange-500">Servicio</span></h2>
+            <p class="text-white/40 mb-10 text-sm uppercase tracking-widest font-bold">Ingresa tu placa para ver el progreso</p>
+            
+            <div class="flex flex-col md:flex-row gap-3 mb-12">
+                <input type="text" id="track-plate" placeholder="ABC-1234" class="flex-1 input-dark p-6 rounded-3xl text-3xl font-black text-center tracking-widest uppercase shadow-xl">
+                <button onclick="buscarMiVehiculo()" class="brand-gradient px-8 py-6 rounded-3xl text-black font-black uppercase text-xs hover:shadow-orange-500/20 shadow-lg transition-all">Consultar</button>
+            </div>
+
+            <div id="track-result" class="min-h-[200px]">
+                <!-- Dinámico -->
+                <div class="glass p-12 rounded-[3rem] opacity-30 italic">Esperando datos...</div>
+            </div>
+        </section>
+
+        <!-- VISTA: UBICACIÓN -->
+        <section id="view-location" class="hidden animate-slide-up max-w-4xl mx-auto">
+            <div class="glass rounded-[3rem] overflow-hidden">
+                <div class="h-[400px] w-full bg-zinc-900 relative">
+                    <iframe 
+                        width="100%" height="100%" 
+                        frameborder="0" style="border:0; filter: grayscale(1) invert(0.9) contrast(1.2);" 
+                        src="https://maps.google.com/maps?q=-3.982464,-79.197598&hl=es&z=18&output=embed"
+                        allowfullscreen>
+                    </iframe>
+                    <div class="absolute bottom-6 left-6 glass p-6 rounded-2xl border border-orange-500/20 max-w-xs">
+                        <p class="text-xs font-black uppercase text-orange-500 mb-2">Dirección TEO MOTORS</p>
+                        <p class="text-sm font-bold">Loja, Ecuador. Sector Norte.</p>
+                        <p class="text-[10px] text-white/40 mt-4 italic">Referencia: Cerca al parque central de Shushuhuayco.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA: ADMIN -->
+        <section id="view-admin" class="hidden animate-slide-up">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                <div>
+                    <h2 class="text-5xl font-black italic uppercase tracking-tighter">Panel de <span class="text-orange-500">Control</span></h2>
+                    <p class="text-white/40 text-xs font-bold uppercase tracking-[0.2em] mt-2">Gestión de Taller - Angel Chamba</p>
+                </div>
+                <div class="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
+                    <button onclick="setAdminTab('pendientes')" id="tab-pendientes" class="px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all">Solicitudes</button>
+                    <button onclick="setAdminTab('activos')" id="tab-activos" class="px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all">En Taller</button>
+                    <button onclick="setAdminTab('historial')" id="tab-historial" class="px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all">Historial</button>
+                </div>
+            </div>
+
+            <div id="admin-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Tarjetas de administración dinámicas -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- COMPONENTES UI: MODALES Y NOTIFICACIONES -->
+    <div id="modal-feedback" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center hidden p-6">
+        <div class="glass max-w-sm w-full p-10 rounded-[3rem] text-center border border-white/10 shadow-2xl scale-90 transition-transform">
+            <div id="fb-icon" class="w-24 h-24 rounded-full mx-auto mb-8 flex items-center justify-center shadow-lg"></div>
+            <h3 id="fb-title" class="text-3xl font-black italic uppercase mb-3 tracking-tighter"></h3>
+            <p id="fb-msg" class="text-white/50 text-sm mb-10 leading-relaxed"></p>
+            <button onclick="closeFeedback()" class="w-full py-5 brand-gradient text-black font-black rounded-2xl uppercase italic tracking-tighter hover:brightness-110">Entendido</button>
+        </div>
+    </div>
+
+    <div id="modal-login" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center hidden p-6">
+        <div class="glass p-12 rounded-[3rem] w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-white/5 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+                <i data-lucide="lock" class="text-orange-500"></i>
+            </div>
+            <h3 class="text-2xl font-black uppercase mb-2 italic">Acceso Restringido</h3>
+            <p class="text-[10px] text-white/30 uppercase font-bold tracking-widest mb-8">Solo para Angel Chamba</p>
+            <input type="password" id="admin-pass" placeholder="Contraseña de acceso" class="w-full input-dark p-5 rounded-2xl text-center mb-6 tracking-[0.5em] text-lg">
+            <button onclick="checkAdmin()" class="w-full brand-gradient py-5 rounded-2xl text-black font-black uppercase italic tracking-tighter">Entrar al Sistema</button>
+            <button onclick="closeLogin()" class="mt-6 text-[10px] uppercase font-bold text-white/20 hover:text-white transition-colors">Volver al inicio</button>
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE LÓGICA -->
+    <script>
+        let currentTab = 'pendientes';
+        const ADMIN_PWD = "teomotors84/86";
+
+        function showView(view) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            
+            // Estilo nav
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('text-orange-500'));
+            const activeLink = Array.from(document.querySelectorAll('.nav-link')).find(l => l.innerText.toLowerCase().includes(view === 'home' ? 'agendar' : view === 'tracking' ? 'vehículo' : 'ubicación'));
+            if(activeLink) activeLink.classList.add('text-orange-500');
+
+            if(view === 'admin') renderAdmin();
+            lucide.createIcons();
+            window.scrollTo(0,0);
+        }
+
+        function setAdminTab(tab) {
+            currentTab = tab;
+            renderAdmin();
+        }
+
+        async function handleReserva(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = "Verificando disponibilidad...";
+
+            const data = {
+                nombre: document.getElementById('form-nombre').value,
+                telefono: document.getElementById('form-tel').value,
+                placa: document.getElementById('form-placa').value.toUpperCase().replace(/\s/g, ''),
+                modelo: document.getElementById('form-modelo').value,
+                fecha: document.getElementById('form-fecha').value,
+                hora: document.getElementById('form-hora').value
+            };
+
+            try {
+                await window.dbFunctions.crearCita(data);
+                showFeedback('success', '¡Cita Enviada!', `Hola ${data.nombre}, tu solicitud para la placa ${data.placa} ha sido recibida. Angel Chamba te contactará pronto.`);
+                e.target.reset();
+            } catch (err) {
+                if(err.message === "HORARIO_OCUPADO") {
+                    showFeedback('error', 'Horario Ocupado', 'Ya existe una cita confirmada para esa fecha y hora. Por favor intenta con otro horario.');
+                } else {
+                    showFeedback('error', 'Error de Sistema', 'No pudimos procesar tu solicitud. Intenta nuevamente.');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Confirmar Cita";
+                lucide.createIcons();
+            }
+        }
+
+        function buscarMiVehiculo() {
+            const plate = document.getElementById('track-plate').value.toUpperCase().replace(/\s/g, '');
+            const res = document.getElementById('track-result');
+            if(!plate) return;
+
+            const citas = window.dbFunctions.getCitas();
+            const cita = citas.find(c => c.placa === plate && c.status !== 'entregado' && c.status !== 'rechazado');
+
+            if(!cita) {
+                res.innerHTML = `<div class="glass p-12 rounded-[3rem] animate-slide-up"><p class="opacity-50 italic">No hay servicios activos para la placa ${plate}.</p></div>`;
+                return;
+            }
+
+            const step = cita.status === 'pendiente' ? 1 : cita.status === 'confirmado' ? 2 : 3;
+            
+            res.innerHTML = `
+                <div class="glass p-10 rounded-[3rem] animate-slide-up text-left border-l-4 border-orange-500">
+                    <div class="flex justify-between items-start mb-8">
+                        <div>
+                            <h4 class="text-4xl font-black italic uppercase tracking-tighter leading-none">${cita.placa}</h4>
+                            <p class="text-[10px] font-bold text-white/40 uppercase mt-2">${cita.modelo}</p>
+                        </div>
+                        <div class="status-badge bg-orange-500/10 text-orange-500">${cita.status.replace('_', ' ')}</div>
+                    </div>
+
+                    <div class="relative pt-8">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-white/5 rounded-full">
+                            <div class="h-full brand-gradient transition-all duration-1000" style="width: ${step * 33}%"></div>
+                        </div>
+                        <div class="grid grid-cols-3 text-[8px] font-black uppercase tracking-widest text-center mt-4">
+                            <div class="${step >= 1 ? 'text-orange-500' : 'opacity-20'}">Solicitud</div>
+                            <div class="${step >= 2 ? 'text-orange-500' : 'opacity-20'}">En Taller</div>
+                            <div class="${step >= 3 ? 'text-orange-500' : 'opacity-20'}">Listo</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdmin() {
+            const list = document.getElementById('admin-list');
+            const citas = window.dbFunctions.getCitas();
+            
+            // Manejo de tabs
+            document.querySelectorAll('[id^="tab-"]').forEach(b => b.classList.remove('bg-orange-500', 'text-black'));
+            document.getElementById(`tab-${currentTab}`).classList.add('bg-orange-500', 'text-black');
+
+            let filtered = [];
+            if(currentTab === 'pendientes') filtered = citas.filter(c => c.status === 'pendiente');
+            if(currentTab === 'activos') filtered = citas.filter(c => ['confirmado', 'en_taller'].includes(c.status));
+            if(currentTab === 'historial') filtered = citas.filter(c => ['entregado', 'rechazado'].includes(c.status));
+
+            if(filtered.length === 0) {
+                list.innerHTML = `<div class="col-span-full py-20 text-center glass rounded-3xl opacity-20 italic">No hay registros aquí</div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(c => `
+                <div class="glass p-6 rounded-[2rem] border border-white/5 hover:border-white/10 transition-all group">
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="text-[10px] font-bold text-white/30 uppercase">${c.fecha} • ${c.hora}</span>
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="eliminarCita('${c.id}')" class="text-white/20 hover:text-red-500"><i data-lucide="trash-2" size="14"></i></button>
+                        </div>
+                    </div>
+                    <h4 class="text-2xl font-black italic uppercase tracking-tighter mb-1">${c.placa}</h4>
+                    <p class="text-xs font-bold text-white/50 mb-6">${c.nombre} - <span class="text-orange-500/80">${c.modelo}</span></p>
+                    
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        ${getActionButtons(c)}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+       function getActionButtons(c) {
+    if(c.status === 'pendiente') {
+        return `
+            <button onclick="updateStatus('${c.id}', 'confirmado', '${c.telefono}', \`¡Hola ${c.nombre}! Tu cita en TEO MOTORS ha sido confirmada para el ${c.fecha} a las ${c.hora}. Te esperamos.\`)" class="bg-emerald-500/10 text-emerald-500 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-500 hover:text-black transition-all">Confirmar</button>
+
+            <button onclick="updateStatus('${c.id}', 'rechazado', '${c.telefono}', \`Lo sentimos ${c.nombre}, no podemos atenderte en ese horario. Por favor agenda uno nuevo. https://teomotorsmecanica.netlify.app/\`)" class="bg-red-500/10 text-red-500 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-red-500 hover:text-black transition-all">Rechazar</button>
+        `;
+    }
+
+    if(c.status === 'confirmado') {
+        return `
+            <button onclick="updateStatus('${c.id}', 'en_taller', '${c.telefono}', \`Hola ${c.nombre}, tu vehículo ya ingresó al taller y estamos trabajando en él.\`)" class="bg-sky-500/10 text-sky-500 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-sky-500 hover:text-black transition-all">Ingresar Taller</button>
+
+            <button onclick="updateStatus('${c.id}', 'entregado')" class="bg-white/5 text-white/40 py-3 rounded-xl text-[9px] font-black uppercase">Omitir</button>
+        `;
+    }
+
+    if(c.status === 'en_taller') {
+        return `
+            <button onclick="entregarVehiculo('${c.id}', '${c.nombre}', '${c.telefono}')" class="col-span-2 brand-gradient text-black py-4 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-orange-500/10">Finalizar y Avisar</button>
+        `;
+    }
+
+    return `<div class="col-span-2 text-center text-[8px] font-bold text-white/20 uppercase tracking-widest py-2 border border-white/5 rounded-lg">${c.status.replace('_', ' ')}</div>`;
+}
+
+        async function updateStatus(id, status, phone, msg) {
+            try {
+                await window.dbFunctions.actualizarCita(id, { status });
+                if(msg && phone) {
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    const finalPhone = cleanPhone.startsWith('593') ? cleanPhone : '593' + cleanPhone.replace(/^0/, '');
+
+                    console.log(finalPhone);
+                    console.log(msg);
+                    window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function entregarVehiculo(id, nombre, tel) {
+            const trabajo = prompt("Resumen rápido del trabajo realizado:");
+            if(trabajo === null) return;
+            const msj = `¡Buenas noticias ${nombre}! Tu vehículo está listo para retirar en TEO MOTORS. \n\nTrabajo realizado: ${trabajo || 'Mantenimiento General'}. \n\n¡Gracias por tu confianza!`;
+            await updateStatus(id, 'entregado', tel, msj);
+        }
+
+        async function eliminarCita(id) {
+            if(confirm('¿Seguro que deseas borrar este registro permanentemente?')) {
+                await window.dbFunctions.eliminarCita(id);
+            }
+        }
+
+        // Modales y Feedback
+        function showFeedback(type, title, msg) {
+            const m = document.getElementById('modal-feedback');
+            const icon = document.getElementById('fb-icon');
+            document.getElementById('fb-title').innerText = title;
+            document.getElementById('fb-msg').innerText = msg;
+            
+            if(type === 'success') {
+                icon.className = "w-24 h-24 bg-emerald-500/10 text-emerald-500 rounded-full mx-auto mb-8 flex items-center justify-center border border-emerald-500/20";
+                icon.innerHTML = '<i data-lucide="check" size="48"></i>';
+            } else {
+                icon.className = "w-24 h-24 bg-red-500/10 text-red-500 rounded-full mx-auto mb-8 flex items-center justify-center border border-red-500/20";
+                icon.innerHTML = '<i data-lucide="x" size="48"></i>';
+            }
+            
+            m.classList.remove('hidden');
+            setTimeout(() => m.children[0].classList.remove('scale-90'), 10);
+            lucide.createIcons();
+        }
+
+        function closeFeedback() {
+            document.getElementById('modal-feedback').classList.add('hidden');
+            document.getElementById('modal-feedback').children[0].classList.add('scale-90');
+        }
+
+        function openAdmin() { document.getElementById('modal-login').classList.remove('hidden'); }
+        function closeLogin() { document.getElementById('modal-login').classList.add('hidden'); }
+        function checkAdmin() {
+            const val = document.getElementById('admin-pass').value;
+            if(val === ADMIN_PWD) {
+                closeLogin();
+                showView('admin');
+                document.getElementById('admin-pass').value = "";
+            } else {
+                alert("Contraseña incorrecta");
+            }
+        }
+
+        // Suscribir actualización de UI al cambio de datos
+        window.updateUI = () => {
+            if(window.currentView === 'admin') renderAdmin();
+            if(window.currentView === 'tracking') buscarMiVehiculo();
+        };
+
+        window.currentView = 'home';
+        window.onload = () => {
+            lucide.createIcons();
+            // Evitar zoom en iOS
+            document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+        };
+    </script>
+</body>
+</html>
